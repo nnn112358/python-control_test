@@ -1,64 +1,73 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+#このファイルは、Python制御パッケージの基本的な機能を実証することを目的としています。
+#AstromとMrurayの平面垂直離着陸（PVTOL）機に対応する、かなり複雑な制御設計と解析を動作します。
+#
 
-# pvtol-nested.py - inner/outer design for vectored thrust aircraft
+
+# pvtol-nested.py - aircraftのスラスタベクトルの内外ループ制御設計
+
 
 from __future__ import print_function
-from matplotlib.pyplot import * # Grab MATLAB plotting functions
-from control.matlab import *    # MATLAB-like functions
+from matplotlib.pyplot import * # MATLAB プロット関数
+from control.matlab import *    # MATLAB-like 関数
 import numpy as np
 
-# System parameters
-m = 4;				# mass of aircraft
-J = 0.0475;			# inertia around pitch axis
-r = 0.25;			# distance to center of force
-g = 9.8;			# gravitational constant
-c = 0.05;	 		# damping factor (estimated)
+# システムのパラメータ
+m = 4;                         # aircraftの質量
+J = 0.0475;                    #ピッチ軸周りの慣性
+r = 0.25;                      #力の中心までの距離
+g = 9.8;                       # 重力定数
+c = 0.05;                      # 減衰係数（推定値）
 
-# Transfer functions for dynamics
-Pi = tf([r], [J, 0, 0]);	# inner loop (roll)
-Po = tf([1], [m, c, 0]);	# outer loop (position)
+
+#ダイナミクスの伝達関数
+Pi = tf([r], [J, 0, 0]);       # 内側のループ (Roll角度)
+Po = tf([1], [m, c, 0]);       # 外側のループ (位置)
 
 # Use state space versions
 Pi = tf2ss(Pi);
 Po = tf2ss(Po);
 
 #
-# Inner loop control design
+# 内側のループ制御設計
 #
 
-
-# Design a simple lead controller for the system
+# システムのシンプルなリードコントローラの設計
 k = 200;  a = 2;  b = 50;
-Ci = k*tf([1, a], [1, b]);		# lead compensator
+Ci = k*tf([1, a], [1, b]);		# リード補償
 Li = Pi*Ci;
 
-# Bode plot for the open loop process
+#オープンループのボード線図
 figure(1); 
 bode(Pi);
 show()
 
-# Bode plot for the loop transfer function, with margins
+# マージンを含めたループ伝達関数のボード線図
 figure(2); 
 bode(Li);
 show()
-# Compute out the gain and phase margins
-#! Not implemented
-# (gm, pm, wcg, wcp) = margin(Li);
+# ゲインと位相マージンを計算する
+#! 実装されていなかった
+(gm, pm, wcg, wcp) = margin(Li);
+print (gm, pm, wcg, wcp)
 
-# Compute the sensitivity and complementary sensitivity functions
+# 感度と相補感度関数を計算する
 Si = feedback(1, Li);
 Ti = Li * Si;
 
-# Check to make sure that the specification is met
+# 仕様が満たされていることを確認する
 figure(3);  gangof4(Pi, Ci);
-# Compute out the actual transfer function from u1 to v1 (see L8.2 notes)
+# u1からv1への実際の伝達関数を計算する(see L8.2 notes)
 # Hi = Ci*(1-m*g*Pi)/(1+Ci*Pi);
 Hi = parallel(feedback(Ci, Pi), -m*g*feedback(Ci*Pi, 1));
 show()
 
 figure(4); clf; subplot(221);
 bode(Hi);
-# Now design the lateral control system
+
+# 横方向制御システムをここで設計する
 a = 0.02; b = 5; K = 2;
 Co = -K*tf([1, 0.3], [1, 10]);		# another lead compensator
 Lo = -m*g*Po*Co;
@@ -67,25 +76,26 @@ show()
 
 figure(5); 
 bode(Lo);                       # margin(Lo)
-# Finally compute the real outer-loop loop gain + responses
+#最後に、実際の外側のループのループゲインと応答を計算する
 L = Co*Hi*Po;
 S = feedback(1, L);
 T = feedback(L, 1);
 
-# Compute stability margins
-#! Not yet implemented
-# (gm, pm, wgc, wpc) = margin(L); 
+# 安定性マージンの計算
+#! 実装されていなかった
+(gm, pm, wgc, wpc) = margin(L); 
+print (gm, pm, wgc, wpc)
 show()
 
-#! TODO: this figure has something wrong; axis limits mismatch
+#! TODO:この数字には何か問題があります。軸の制限が不一致
 figure(6); clf; 
 bode(L);
 
-# Add crossover line
+# クロスオーバーラインを追加
 subplot(211); hold(True);
 loglog([1e-4, 1e3], [1, 1], 'k-')
 
-# Replot phase starting at -90 degrees
+#-90度から始まるように位相反転
 bode(L, logspace(-4, 3));
 (mag, phase, w) = freqresp(L, logspace(-4, 3));
 phase = phase - 360;
@@ -99,28 +109,28 @@ xlabel('Frequency [deg]'); ylabel('Phase [deg]');
 # set(gca, 'XTick', [10^-4, 10^-2, 1, 100]);
 show()
 #
-# Nyquist plot for complete design
+# ナイキスト線図
 #
 figure(7); clf;
 axis([-700, 5300, -3000, 3000]); hold(True);
 nyquist(L, (0.0001, 1000));
 axis([-700, 5300, -3000, 3000]);
 
-# Add a box in the region we are going to expand
+# 展開する領域にボックスを追加する
 plot([-400, -400, 200, 200, -400], [-100, 100, 100, -100, -100], 'r-')
 show()
 
-# Expanded region  
+# 拡張領域
 figure(8); clf; subplot(231); 
 axis([-10, 5, -20, 20]); hold(True);
 nyquist(L);
 axis([-10, 5, -20, 20]);
 
-# set up the color
+#色を設定
 color = 'b';
 show()
 
-# Add arrows to the plot
+# プロットに矢印を追加する
 # H1 = L.evalfr(0.4); H2 = L.evalfr(0.41);
 # arrow([real(H1), imag(H1)], [real(H2), imag(H2)], AM_normal_arrowsize, \
 #  'EdgeColor', color, 'FaceColor', color);

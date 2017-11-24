@@ -1,38 +1,37 @@
 #!/usr/bin/env python
-
+# -*- coding: utf-8 -*-
 
 # pvtol_lqr.m - LQR design for vectored thrust aircraft
 # RMM, 14 Jan 03
 #
-# This file works through an LQR based design problem, using the
-# planar vertical takeoff and landing (PVTOL) aircraft example from
-# Astrom and Mruray, Chapter 5.  It is intended to demonstrate the
-# basic functionality of the python-control package.
+
+#このファイルは、Astrom and Mruray第5章の平面垂直離着陸（PVTOL）航空機の例を使用して、
+#LQRベースの設計上の問題をPythonコントロールパッケージの基本機を使って処理します。
 #
 
-from numpy import *             # Grab all of the NumPy functions
-from matplotlib.pyplot import * # Grab MATLAB plotting functions
-from control.matlab import *    # MATLAB-like functions
+from numpy import *             # NumPy関数
+from matplotlib.pyplot import * # MATLAB プロット関数
+from control.matlab import *    # MATLAB-like 関数
 
 #
 # System dynamics
 #
-# These are the dynamics for the PVTOL system, written in state space
-# form.
+# 状態空間形式のPVTOLシステムのダイナミクス
 #
 
-# System parameters
-m = 4;				# mass of aircraft
-J = 0.0475;			# inertia around pitch axis
-r = 0.25;			# distance to center of force
-g = 9.8;			# gravitational constant
-c = 0.05;	 		# damping factor (estimated)
+# システムのパラメータ
+m = 4;                         # aircraftの質量
+J = 0.0475;                    #ピッチ軸周りの慣性
+r = 0.25;                      #力の中心までの距離
+g = 9.8;                       # 重力定数
+c = 0.05;                      # 減衰係数（推定値）
 
-# State space dynamics
-xe = [0, 0, 0, 0, 0, 0];        # equilibrium point of interest
-ue = [0, m*g];                  # (note these are lists, not matrices)
 
-# Dynamics matrix (use matrix type so that * works for multiplication)
+#  dynamicsの状態空間
+xe = [0, 0, 0, 0, 0, 0];        # 平衡点
+ue = [0, m*g];                  # (これらはリストであり行列ではないことに注意してください)
+
+# Dynamics 行列 (*が動作するように行列型を使用する)
 A = matrix(
     [[ 0,    0,    0,    1,    0,    0],
      [ 0,    0,    0,    0,    1,    0],
@@ -41,60 +40,57 @@ A = matrix(
      [ 0, 0, (ue[0]*cos(xe[2]) - ue[1]*sin(xe[2]))/m, 0, -c/m, 0],
      [ 0,    0,    0,    0,    0,    0 ]])
 
-# Input matrix
+# Input 行列
 B = matrix(
     [[0, 0], [0, 0], [0, 0],
      [cos(xe[2])/m, -sin(xe[2])/m],
      [sin(xe[2])/m,  cos(xe[2])/m],
      [r/J, 0]])
 
-# Output matrix 
+# Output 行列 
 C = matrix([[1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0]])
 D = matrix([[0, 0], [0, 0]])
 
 #
-# Construct inputs and outputs corresponding to steps in xy position
+#　xy位置のstepに対応する入力と出力を構築する
+#ベクトルxdおよびydは、システムの所望の平衡状態である状態に対応する。
+#行列CxおよびCyは、対応する出力である。
 #
-# The vectors xd and yd correspond to the states that are the desired
-# equilibrium states for the system.  The matrices Cx and Cy are the 
-# corresponding outputs.
-#
-# The way these vectors are used is to compute the closed loop system
-# dynamics as
+# これらのベクトルは、閉ループシステムのダイナミクスを次のように計算することで使用される。
+
 #
 #	xdot = Ax + B u		=>	xdot = (A-BK)x + K xd
 #         u = -K(x - xd)		   y = Cx
 #
-# The closed loop dynamics can be simulated using the "step" command, 
-# with K*xd as the input vector (assumes that the "input" is unit size,
-# so that xd corresponds to the desired steady state.
+# 閉ループ動特性は、入力ベクトルとしてK * xdを用いて「step」コマンドを使用してシミュレートすることができる
+# （「入力」は単位サイズであると仮定し、xdは所望の定常状態に対応する）。
 #
 
 xd = matrix([[1], [0], [0], [0], [0], [0]]); 
 yd = matrix([[0], [1], [0], [0], [0], [0]]);  
 
 #
-# Extract the relevant dynamics for use with SISO library
+# 関連するダイナミクスを抽出してSISOライブラリで使用する
 #
-# The current python-control library only supports SISO transfer
-# functions, so we have to modify some parts of the original MATLAB
-# code to extract out SISO systems.  To do this, we define the 'lat' and
-# 'alt' index vectors to consist of the states that are are relevant
-# to the lateral (x) and vertical (y) dynamics.
+# 現在のpython-controlライブラリはSISO転送関数しかサポートしていないので、
+# 元のMATLABコードの一部を修正してSISOシステムを抽出する必要があります。
+# これを行うために、横（x）および縦（y）ダイナミクスに関連する状態からなるように、
+# 「lat」および「alt」インデックスベクトルを定義します。
 #
 
-# Indices for the parts of the state that we want
+# 私たちが状態変数
+
 lat = (0,2,3,5);
 alt = (1,4);
 
-# Decoupled dynamics
-Ax = (A[lat, :])[:, lat];       #! not sure why I have to do it this way
+#分離されたダイナミックス
+Ax = (A[lat, :])[:, lat];       #!なぜこのようにしなければならないのか分からない!
 Bx = B[lat, 0]; Cx = C[0, lat]; Dx = D[0, 0];
 
-Ay = (A[alt, :])[:, alt];       #! not sure why I have to do it this way
+Ay = (A[alt, :])[:, alt];       #!なぜこのようにしなければならないのか分からない!
 By = B[alt, 1]; Cy = C[1, alt]; Dy = D[1, 1];
 
-# Label the plot
+#  plotラベル
 clf(); 
 suptitle("LQR controllers for vectored thrust aircraft (pvtol-lqr)")
 
@@ -102,21 +98,21 @@ suptitle("LQR controllers for vectored thrust aircraft (pvtol-lqr)")
 # LQR design
 #
 
-# Start with a diagonal weighting
+# 対角行列の重み付け
 Qx1 = diag([1, 1, 1, 1, 1, 1]);
 Qu1a = diag([1, 1]);
 (K, X, E) = lqr(A, B, Qx1, Qu1a); K1a = matrix(K);
 
-# Close the loop: xdot = Ax - B K (x-xd)
-# Note: python-control requires we do this 1 input at a time
-# H1a = ss(A-B*K1a, B*K1a*concatenate((xd, yd), axis=1), C, D);
+# ループを閉じる: xdot = Ax - B K (x-xd)
+# Note: python-controlでは、この入力を一度に行う必要があります
+#　H1a = ss(A-B*K1a, B*K1a*concatenate((xd, yd), axis=1), C, D)　
 # (T, Y) = step(H1a, T=linspace(0,10,100));
 
-# Step response for the first input
+# 最初の入力に対するステップ応答
 H1ax = ss(Ax - Bx*K1a[0,lat], Bx*K1a[0,lat]*xd[lat,:], Cx, Dx);
 (Yx, Tx) = step(H1ax, T=linspace(0,10,100));
 
-# Step response for the second input
+# 第2入力に対するステップ応答
 H1ay = ss(Ay - By*K1a[1,alt], By*K1a[1,alt]*yd[alt,:], Cy, Dy);
 (Yy, Ty) = step(H1ay, T=linspace(0,10,100));
 
@@ -129,7 +125,7 @@ axis([0, 10, -0.1, 1.4]);
 ylabel('position');
 legend(('x', 'y'), loc='lower right');
 
-# Look at different input weightings
+# 異なる入力重みを見る
 Qu1a = diag([1, 1]); (K1a, X, E) = lqr(A, B, Qx1, Qu1a);
 H1ax = ss(Ax - Bx*K1a[0,lat], Bx*K1a[0,lat]*xd[lat,:], Cx, Dx);
 
@@ -154,7 +150,7 @@ axis([0, 10, -0.1, 1.4]);
 # arcarrow([1.3, 0.8], [5, 0.45], -6);
 text(5.3, 0.4, 'rho');
 
-# Output weighting - change Qx to use outputs
+# 出力重み付け - 出力を使用するようにQxを変更する
 Qx2 = C.T * C;
 Qu2 = 0.1 * diag([1, 1]);
 (K, X, E) = lqr(A, B, Qx2, Qu2); K2 = matrix(K)
@@ -171,11 +167,11 @@ xlabel('time'); ylabel('position');
 legend(('x', 'y'), loc='lower right');
 
 #
-# Physically motivated weighting
+# 　物理的に動機付けされた重み付け
 #
-# Shoot for 1 cm error in x, 10 cm error in y.  Try to keep the angle
-# less than 5 degrees in making the adjustments.  Penalize side forces
-# due to loss in efficiency.
+# xで1 cmの誤差、yで10 cmの誤差で決定する。
+# 角度を5度以下に調整して調整する。
+# 効率の低下により、サイドの力にはペナルティを課す。
 #
 
 Qx3 = diag([100, 10, 2*pi/5, 0, 0, 0]);

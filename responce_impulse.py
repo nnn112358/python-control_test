@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+#てすと
+
 from control.matlab import *
 from matplotlib import pyplot as plt
 from scipy import arange 
